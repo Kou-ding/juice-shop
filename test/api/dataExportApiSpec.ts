@@ -13,6 +13,35 @@ const fs = require('fs')
 const jsonHeader = { 'content-type': 'application/json' }
 const REST_URL = 'http://localhost:3000/rest'
 
+
+
+// Reusable Function
+function loginAndPostMemory(filePath: string, frisby: any, REST_URL: string, jsonHeader: any, config: any) {
+  const file = path.resolve(__dirname, filePath);
+  const form = frisby.formData();
+  form.append('image', fs.createReadStream(file), 'Valid Image');
+  form.append('caption', 'Valid Image');
+
+  return frisby.post(REST_URL + '/user/login', {
+    headers: jsonHeader,
+    body: {
+      email: 'jim@' + config.get<string>('application.domain'),
+      password: 'ncc-1701',
+    },
+  })
+    .expect('status', 200)
+    .then(({ json: jsonLogin }) => {
+      return frisby.post(REST_URL + '/memories', {
+        headers: {
+          Authorization: 'Bearer ' + jsonLogin.authentication.token,
+          // @ts-expect-error FIXME form.getHeaders() is not found
+          'Content-Type': form.getHeaders()['content-type'],
+        },
+        body: form,
+      }).then(() => ({ jsonLogin, form })); // Return login details for further use
+    });
+}
+
 describe('/rest/user/data-export', () => {
   it('Export data without use of CAPTCHA', () => {
     return frisby.post(REST_URL + '/user/login', {
@@ -183,49 +212,26 @@ describe('/rest/user/data-export', () => {
   })
 
   it('Export data including memories without use of CAPTCHA', () => {
-    const file = path.resolve(__dirname, '../files/validProfileImage.jpg')
-    const form = frisby.formData()
-    form.append('image', fs.createReadStream(file), 'Valid Image')
-    form.append('caption', 'Valid Image')
-
-    return frisby.post(REST_URL + '/user/login', {
-      headers: jsonHeader,
-      body: {
-        email: 'jim@' + config.get<string>('application.domain'),
-        password: 'ncc-1701'
-      }
-    })
-      .expect('status', 200)
-      .then(({ json: jsonLogin }) => {
-        return frisby.post(REST_URL + '/memories', {
-          headers: {
-            Authorization: 'Bearer ' + jsonLogin.authentication.token,
-            // @ts-expect-error FIXME form.getHeaders() is not found
-            'Content-Type': form.getHeaders()['content-type']
+    return loginAndPostMemory('../files/validProfileImage.jpg', frisby, REST_URL, jsonHeader, config)
+      .then(({ jsonLogin }) => {
+        return frisby.post(REST_URL + '/user/data-export', {
+          headers: { Authorization: 'Bearer ' + jsonLogin.authentication.token, 'content-type': 'application/json' },
+          body: {
+            format: '1',
           },
-          body: form
         })
           .expect('status', 200)
-          .then(() => {
-            return frisby.post(REST_URL + '/user/data-export', {
-              headers: { Authorization: 'Bearer ' + jsonLogin.authentication.token, 'content-type': 'application/json' },
-              body: {
-                format: '1'
-              }
-            })
-              .expect('status', 200)
-              .expect('header', 'content-type', /application\/json/)
-              .expect('json', 'confirmation', 'Your data export will open in a new Browser window.')
-              .then(({ json }) => {
-                const parsedData = JSON.parse(json.userData)
-                expect(parsedData.username).toBe('')
-                expect(parsedData.email).toBe('jim@' + config.get<string>('application.domain'))
-                expect(parsedData.memories[0].caption).toBe('Valid Image')
-                expect(parsedData.memories[0].imageUrl).toContain('assets/public/images/uploads/valid-image')
-              })
-          })
-      })
-  })
+          .expect('header', 'content-type', /application\/json/)
+          .expect('json', 'confirmation', 'Your data export will open in a new Browser window.')
+          .then(({ json }) => {
+            const parsedData = JSON.parse(json.userData);
+            expect(parsedData.username).toBe('');
+            expect(parsedData.email).toBe('jim@' + config.get<string>('application.domain'));
+            expect(parsedData.memories[0].caption).toBe('Valid Image');
+            expect(parsedData.memories[0].imageUrl).toContain('assets/public/images/uploads/valid-image');
+          });
+      });
+  });
 
   it('Export data including orders with use of CAPTCHA', () => {
     return frisby.post(REST_URL + '/user/login', {
@@ -321,55 +327,32 @@ describe('/rest/user/data-export', () => {
   })
 
   it('Export data including memories with use of CAPTCHA', () => {
-    const file = path.resolve(__dirname, '../files/validProfileImage.jpg')
-    const form = frisby.formData()
-    form.append('image', fs.createReadStream(file), 'Valid Image')
-    form.append('caption', 'Valid Image')
-
-    return frisby.post(REST_URL + '/user/login', {
-      headers: jsonHeader,
-      body: {
-        email: 'jim@' + config.get<string>('application.domain'),
-        password: 'ncc-1701'
-      }
-    })
-      .expect('status', 200)
-      .then(({ json: jsonLogin }) => {
-        return frisby.post(REST_URL + '/memories', {
-          headers: {
-            Authorization: 'Bearer ' + jsonLogin.authentication.token,
-            // @ts-expect-error FIXME form.getHeaders() is not found
-            'Content-Type': form.getHeaders()['content-type']
-          },
-          body: form
-        })
-          .expect('status', 200)
-          .then(() => {
-            return frisby.get(REST_URL + '/image-captcha', {
-              headers: { Authorization: 'Bearer ' + jsonLogin.authentication.token, 'content-type': 'application/json' }
-            })
-              .expect('status', 200)
-              .expect('header', 'content-type', /application\/json/)
-              .then(({ json: captchaAnswer }) => {
-                return frisby.post(REST_URL + '/user/data-export', {
-                  headers: { Authorization: 'Bearer ' + jsonLogin.authentication.token, 'content-type': 'application/json' },
-                  body: {
-                    answer: captchaAnswer.answer,
-                    format: 1
-                  }
-                })
-                  .expect('status', 200)
-                  .expect('header', 'content-type', /application\/json/)
-                  .expect('json', 'confirmation', 'Your data export will open in a new Browser window.')
-                  .then(({ json }) => {
-                    const parsedData = JSON.parse(json.userData)
-                    expect(parsedData.username).toBe('')
-                    expect(parsedData.email).toBe('jim@' + config.get<string>('application.domain'))
-                    expect(parsedData.memories[0].caption).toBe('Valid Image')
-                    expect(parsedData.memories[0].imageUrl).toContain('assets/public/images/uploads/valid-image')
-                  })
-              })
-          })
+  return loginAndPostMemory('../files/validProfileImage.jpg', frisby, REST_URL, jsonHeader, config)
+    .then(({ jsonLogin }) => {
+      return frisby.get(REST_URL + '/image-captcha', {
+        headers: { Authorization: 'Bearer ' + jsonLogin.authentication.token, 'content-type': 'application/json' },
       })
-  })
+        .expect('status', 200)
+        .expect('header', 'content-type', /application\/json/)
+        .then(({ json: captchaAnswer }) => {
+          return frisby.post(REST_URL + '/user/data-export', {
+            headers: { Authorization: 'Bearer ' + jsonLogin.authentication.token, 'content-type': 'application/json' },
+            body: {
+              answer: captchaAnswer.answer,
+              format: 1,
+            },
+          })
+            .expect('status', 200)
+            .expect('header', 'content-type', /application\/json/)
+            .expect('json', 'confirmation', 'Your data export will open in a new Browser window.')
+            .then(({ json }) => {
+              const parsedData = JSON.parse(json.userData);
+              expect(parsedData.username).toBe('');
+              expect(parsedData.email).toBe('jim@' + config.get<string>('application.domain'));
+              expect(parsedData.memories[0].caption).toBe('Valid Image');
+              expect(parsedData.memories[0].imageUrl).toContain('assets/public/images/uploads/valid-image');
+            });
+        });
+    });
+  });
 })
