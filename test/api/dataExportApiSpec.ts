@@ -42,6 +42,12 @@ function loginAndPostMemory(filePath: string, frisby: any, REST_URL: string, jso
     });
 }
 
+export function loginAndPostMemory(filePath: string, frisby: any, REST_URL: string, jsonHeader: any, config: any) {
+  // Function code here...
+}
+
+
+
 describe('/rest/user/data-export', () => {
   it('Export data without use of CAPTCHA', () => {
     return frisby.post(REST_URL + '/user/login', {
