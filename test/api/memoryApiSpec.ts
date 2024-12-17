@@ -7,6 +7,8 @@ import frisby = require('frisby')
 import { expect } from '@jest/globals'
 import config from 'config'
 import path from 'path'
+import { loginAndPostMemory } from 'test/api/dataExportApiSpec.ts'
+
 const fs = require('fs')
 
 const jsonHeader = { 'content-type': 'application/json' }
@@ -52,62 +54,35 @@ describe('/rest/memories', () => {
   })
 
   it('POST new memory image file invalid type', () => {
-    const file = path.resolve(__dirname, '../files/invalidProfileImageType.docx')
-    const form = frisby.formData()
-    form.append('image', fs.createReadStream(file), 'Valid Image')
-    form.append('caption', 'Valid Image')
+    return loginAndPostMemory('../files/invalidProfileImageType.docx', frisby, REST_URL, jsonHeader, config)
+    .then(({ jsonLogin }) => {
+      return frisby.post(REST_URL + '/memories', {
+        headers: {
+          Authorization: 'Bearer ' + jsonLogin.authentication.token,
+          'content-type': 'application/json',
+        },
+        body: { caption: 'Valid Image' },
+      }).expect('status', 500);
+    });
+  });
 
-    return frisby.post(REST_URL + '/user/login', {
-      headers: jsonHeader,
-      body: {
-        email: 'jim@' + config.get<string>('application.domain'),
-        password: 'ncc-1701'
-      }
-    })
-      .expect('status', 200)
-      .then(({ json: jsonLogin }) => {
+  it('POST new memory with valid JPG format image', () => {
+    return loginAndPostMemory('../files/validProfileImage.jpg', frisby, REST_URL, jsonHeader, config)
+      .then(({ jsonLogin }) => {
         return frisby.post(REST_URL + '/memories', {
           headers: {
             Authorization: 'Bearer ' + jsonLogin.authentication.token,
-            // @ts-expect-error FIXME form.getHeaders() is not found
-            'Content-Type': form.getHeaders()['content-type']
+            'content-type': 'application/json',
           },
-          body: form
-        })
-          .expect('status', 500)
-      })
-  })
-
-  it('POST new memory with valid for JPG format image', () => {
-    const file = path.resolve(__dirname, '../files/validProfileImage.jpg')
-    const form = frisby.formData()
-    form.append('image', fs.createReadStream(file), 'Valid Image')
-    form.append('caption', 'Valid Image')
-
-    return frisby.post(REST_URL + '/user/login', {
-      headers: jsonHeader,
-      body: {
-        email: 'jim@' + config.get<string>('application.domain'),
-        password: 'ncc-1701'
-      }
-    })
-      .expect('status', 200)
-      .then(({ json: jsonLogin }) => {
-        return frisby.post(REST_URL + '/memories', {
-          headers: {
-            Authorization: 'Bearer ' + jsonLogin.authentication.token,
-            // @ts-expect-error FIXME form.getHeaders() is not found
-            'Content-Type': form.getHeaders()['content-type']
-          },
-          body: form
+          body: { caption: 'Valid Image' },
         })
           .expect('status', 200)
           .then(({ json }) => {
-            expect(json.data.caption).toBe('Valid Image')
-            expect(json.data.UserId).toBe(2)
-          })
-      })
-  })
+            expect(json.data.caption).toBe('Valid Image');
+            expect(json.data.UserId).toBe(2);
+          });
+      });
+  });
 
   it('Should not crash the node-js server when sending invalid content like described in CVE-2022-24434', () => {
     return frisby.post(REST_URL + '/memories', {
