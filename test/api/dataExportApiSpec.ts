@@ -13,6 +13,9 @@ const fs = require('fs')
 const jsonHeader = { 'content-type': 'application/json' }
 const REST_URL = 'http://localhost:3000/rest'
 
+export function loginAndPostMemory(filePath: string, frisby: any, REST_URL: string, jsonHeader: any, config: any) {
+  // Function code here...
+}
 
 
 // Reusable Function
