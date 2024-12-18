@@ -31,6 +31,29 @@ async function login ({ email, password }: { email: string, password: string }) 
   return loginRes.json.authentication
 }
 
+// Utility Functions
+async function getToken(email: string, password: string): Promise<string> {
+  const { token } = await login({ email, password });
+  return token;
+}
+
+async function sendChatbotQuery(token: string, query: string, expectedStatus: number) {
+  return frisby
+    .setup({
+      request: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      },
+    }, true)
+    .post(REST_URL + 'chatbot/respond', {
+      body: { action: 'query', query },
+    })
+    .expect('status', expectedStatus)
+    .promise();
+}
+
 describe('/chatbot', () => {
   beforeAll(async () => {
     await initialize()
@@ -72,101 +95,47 @@ describe('/chatbot', () => {
 
   describe('/respond', () => {
     it('Asks for username if not defined', async () => {
-      const { token } = await login({
-        email: `J12934@${config.get<string>('application.domain')}`,
-        password: '0Y8rMnww$*9VFYE§59-!Fg1L6t&6lB'
-      })
-
-      const testCommand = trainingData.data[0].utterances[0]
-
-      await frisby.setup({
-        request: {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      }, true)
-        .post(REST_URL + 'chatbot/respond', {
-          body: {
-            action: 'query',
-            query: testCommand
-          }
-        })
-        .expect('status', 200)
-        .expect('json', 'action', 'namequery')
-        .expect('json', 'body', 'I\'m sorry I didn\'t get your name. What shall I call you?')
-        .promise()
-    })
+      const email = `J12934@${config.get<string>('application.domain')}`;
+      const password = '0Y8rMnww$*9VFYE§59-!Fg1L6t&6lB';
+      const token = await getToken(email, password);
+  
+      const testCommand = trainingData.data[0].utterances[0];
+      const response = await sendChatbotQuery(token, testCommand, 200);
+  
+      expect(response.json.action).toBe('namequery');
+      expect(response.json.body).toBe("I'm sorry I didn't get your name. What shall I call you?");
+    });
 
     it('Returns greeting if username is defined', async () => {
       if (bot == null) {
-        throw new Error('Bot not initialized')
+        throw new Error('Bot not initialized');
       }
-      const { token } = await login({
-        email: 'bjoern.kimminich@gmail.com',
-        password: 'bW9jLmxpYW1nQGhjaW5pbW1pay5ucmVvamI='
-      })
-
-      bot.addUser('1337', 'bkimminich')
-      const testCommand = trainingData.data[0].utterances[0]
-
-      await frisby.setup({
-        request: {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      }, true)
-        .post(REST_URL + 'chatbot/respond', {
-          body: {
-            action: 'query',
-            query: testCommand
-          }
-        })
-        .expect('status', 200)
-        .expect('json', 'action', 'response')
-        .expect('json', 'body', bot.greet('1337'))
-        .promise()
-    })
+      const email = 'bjoern.kimminich@gmail.com';
+      const password = 'bW9jLmxpYW1nQGhjaW5pbW1pay5ucmVvamI=';
+      const token = await getToken(email, password);
+  
+      bot.addUser('1337', 'bkimminich');
+      const testCommand = trainingData.data[0].utterances[0];
+      const response = await sendChatbotQuery(token, testCommand, 200);
+  
+      expect(response.json.action).toBe('response');
+      expect(response.json.body).toBe(bot.greet('1337'));
+    });
 
     it('Returns proper response for registered user', async () => {
       if (bot == null) {
-        throw new Error('Bot not initialized')
+        throw new Error('Bot not initialized');
       }
-      const { token } = await login({
-        email: 'bjoern.kimminich@gmail.com',
-        password: 'bW9jLmxpYW1nQGhjaW5pbW1pay5ucmVvamI='
-      })
-      bot.addUser('12345', 'bkimminich')
-      const testCommand = trainingData.data[0].utterances[0]
-      await frisby.setup({
-        request: {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      }, true)
-        .post(REST_URL + 'chatbot/respond', {
-          body: {
-            action: 'query',
-            query: testCommand
-          }
-        })
-        .post(REST_URL + 'chatbot/respond', {
-          body: {
-            action: 'query',
-            query: testCommand
-          }
-        })
-        .expect('status', 200)
-        .promise()
-        .then(({ json }) => {
-          expect(trainingData.data[0].answers).toContainEqual(json)
-        })
-    })
+      const email = 'bjoern.kimminich@gmail.com';
+      const password = 'bW9jLmxpYW1nQGhjaW5pbW1pay5ucmVvamI=';
+      const token = await getToken(email, password);
+  
+      bot.addUser('12345', 'bkimminich');
+      const testCommand = trainingData.data[0].utterances[0];
+      const response = await sendChatbotQuery(token, testCommand, 200);
+  
+      expect(trainingData.data[0].answers).toContainEqual(response.json);
+    });
 
     it('Responds with product price when asked question with product name', async () => {
       const { token } = await login({
