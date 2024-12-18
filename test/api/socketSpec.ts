@@ -3,50 +3,55 @@
  * SPDX-License-Identifier: MIT
  */
 
-import io from 'socket.io-client'
+import io from 'socket.io-client';
 
 describe('WebSocket', () => {
-  let socket: SocketIOClient.Socket
+  let socket;
 
   beforeEach(done => {
     socket = io('http://localhost:3000', {
       reconnectionDelay: 0,
       forceNew: true
-    })
-    socket.on('connect', () => {
-      done()
-    })
-  })
+    });
+    socket.on('connect', done);
+  });
 
   afterEach(done => {
     if (socket.connected) {
-      socket.disconnect()
+      socket.disconnect();
     }
-    done()
-  })
+    done();
+  });
+
+  function emitNotifications(messages, done) {
+    messages.forEach(message => {
+      socket.emit('notification received', message);
+    });
+    done();
+  }
 
   it('server handles confirmation messages for emitted challenge resolutions', done => {
-    socket.emit('notification received', 'Find the carefully hidden \'Score Board\' page.')
-    socket.emit('notification received', 'Provoke an error that is not very gracefully handled.')
-    socket.emit('notification received', 'Log in with the administrator\'s user account.')
-    socket.emit('notification received', 'Retrieve a list of all user credentials via SQL Injection')
-    socket.emit('notification received', 'Post some feedback in another user\'s name.')
-    socket.emit('notification received', 'Wherever you go, there you are.')
-    socket.emit('notification received', 'Place an order that makes you rich.')
-    socket.emit('notification received', 'Access a confidential document.')
-    socket.emit('notification received', 'Access a salesman\'s forgotten backup file.')
-    socket.emit('notification received', 'Change Bender\'s password into slurmCl4ssic.')
-    socket.emit('notification received', 'Apply some advanced cryptanalysis to find the real easter egg.')
-    done()
-  })
+    const messages = [
+      "Find the carefully hidden 'Score Board' page.",
+      'Provoke an error that is not very gracefully handled.',
+      "Log in with the administrator's user account.",
+      'Retrieve a list of all user credentials via SQL Injection',
+      "Post some feedback in another user's name.",
+      'Wherever you go, there you are.',
+      'Place an order that makes you rich.',
+      'Access a confidential document.',
+      "Access a salesman's forgotten backup file.",
+      "Change Bender's password into slurmCl4ssic.",
+      'Apply some advanced cryptanalysis to find the real easter egg.'
+    ];
+    emitNotifications(messages, done);
+  });
 
   it('server handles confirmation message for a non-existent challenge', done => {
-    socket.emit('notification received', 'Emit a confirmation for a challenge that was never emitted!')
-    done()
-  })
+    emitNotifications(['Emit a confirmation for a challenge that was never emitted!'], done);
+  });
 
   it('server handles empty confirmation message', done => {
-    socket.emit('notification received', undefined)
-    done()
-  })
-})
+    emitNotifications([undefined], done);
+  });
+});
