@@ -10,6 +10,30 @@ const Joi = frisby.Joi
 
 const URL = 'http://localhost:3000'
 
+
+import { SocketIOClient } from 'socket.io-client'
+
+// Function to establish and disconnect socket
+export function setupSocket(socket: SocketIOClient.Socket, url: string, done: () => void) {
+  beforeEach(done => {
+    socket = io(url, {
+      reconnectionDelay: 0,
+      forceNew: true
+    })
+    socket.on('connect', () => {
+      done()
+    })
+  })
+
+  afterEach(done => {
+    if (socket.connected) {
+      socket.disconnect()
+    }
+    done()
+  })
+}
+
+
 describe('/snippets/:challenge', () => {
   it('GET code snippet retrieval for unknown challenge key throws error', () => {
     return frisby.get(URL + '/snippets/doesNotExistChallenge')
@@ -36,22 +60,8 @@ describe('/snippets/:challenge', () => {
 describe('snippets/verdict', () => {
   let socket: SocketIOClient.Socket
 
-  beforeEach(done => {
-    socket = io('http://localhost:3000', {
-      reconnectionDelay: 0,
-      forceNew: true
-    })
-    socket.on('connect', () => {
-      done()
-    })
-  })
+  setupSocket(socket, 'http://localhost:3000', done)
 
-  afterEach(done => {
-    if (socket.connected) {
-      socket.disconnect()
-    }
-    done()
-  })
 
   it('should check for the incorrect lines', () => {
     return frisby.post(URL + '/snippets/verdict', {
