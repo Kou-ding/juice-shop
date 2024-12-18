@@ -12,25 +12,29 @@ const jsonHeader = { 'content-type': 'application/json' }
 const REST_URL = 'http://localhost:3000/rest'
 const URL = 'http://localhost:3000'
 
+// Reusable function for user login
+function loginUser() {
+  return frisby.post(`${REST_URL}/user/login`, {
+    headers: jsonHeader,
+    body: {
+      email: `jim@${config.get<string>('application.domain')}`,
+      password: 'ncc-1701'
+    }
+  })
+    .expect('status', 200)
+}
+
 describe('/profile/image/file', () => {
   it('POST profile image file valid for JPG format', () => {
     const file = path.resolve(__dirname, '../files/validProfileImage.jpg')
     const form = frisby.formData()
     form.append('file', fs.createReadStream(file))
 
-    return frisby.post(`${REST_URL}/user/login`, {
-      headers: jsonHeader,
-      body: {
-        email: `jim@${config.get<string>('application.domain')}`,
-        password: 'ncc-1701'
-      }
-    })
-      .expect('status', 200)
+    return loginUser()
       .then(({ json: jsonLogin }) => {
         return frisby.post(`${URL}/profile/image/file`, {
           headers: {
             Cookie: `token=${jsonLogin.authentication.token}`,
-            // @ts-expect-error FIXME form.getHeaders() is not found
             'Content-Type': form.getHeaders()['content-type']
           },
           body: form,
@@ -45,19 +49,11 @@ describe('/profile/image/file', () => {
     const form = frisby.formData()
     form.append('file', fs.createReadStream(file))
 
-    return frisby.post(`${REST_URL}/user/login`, {
-      headers: jsonHeader,
-      body: {
-        email: `jim@${config.get<string>('application.domain')}`,
-        password: 'ncc-1701'
-      }
-    })
-      .expect('status', 200)
+    return loginUser()
       .then(({ json: jsonLogin }) => {
         return frisby.post(`${URL}/profile/image/file`, {
           headers: {
             Cookie: `token=${jsonLogin.authentication.token}`,
-            // @ts-expect-error FIXME form.getHeaders() is not found
             'Content-Type': form.getHeaders()['content-type']
           },
           body: form
@@ -75,7 +71,6 @@ describe('/profile/image/file', () => {
     form.append('file', fs.createReadStream(file))
 
     return frisby.post(`${URL}/profile/image/file`, {
-      // @ts-expect-error FIXME form.getHeaders() is not found
       headers: { 'Content-Type': form.getHeaders()['content-type'] },
       body: form
     })
@@ -90,19 +85,11 @@ describe('/profile/image/url', () => {
     const form = frisby.formData()
     form.append('imageUrl', 'https://placekitten.com/g/100/100')
 
-    return frisby.post(`${REST_URL}/user/login`, {
-      headers: jsonHeader,
-      body: {
-        email: `jim@${config.get<string>('application.domain')}`,
-        password: 'ncc-1701'
-      }
-    })
-      .expect('status', 200)
+    return loginUser()
       .then(({ json: jsonLogin }) => {
         return frisby.post(`${URL}/profile/image/url`, {
           headers: {
             Cookie: `token=${jsonLogin.authentication.token}`,
-            // @ts-expect-error FIXME form.getHeaders() is not found
             'Content-Type': form.getHeaders()['content-type']
           },
           body: form,
@@ -116,19 +103,11 @@ describe('/profile/image/url', () => {
     const form = frisby.formData()
     form.append('imageUrl', 'https://notanimage.here/100/100')
 
-    return frisby.post(`${REST_URL}/user/login`, {
-      headers: jsonHeader,
-      body: {
-        email: `jim@${config.get<string>('application.domain')}`,
-        password: 'ncc-1701'
-      }
-    })
-      .expect('status', 200)
+    return loginUser()
       .then(({ json: jsonLogin }) => {
         return frisby.post(`${URL}/profile/image/url`, {
           headers: {
             Cookie: `token=${jsonLogin.authentication.token}`,
-            // @ts-expect-error FIXME form.getHeaders() is not found
             'Content-Type': form.getHeaders()['content-type']
           },
           body: form,
@@ -143,7 +122,6 @@ describe('/profile/image/url', () => {
     form.append('imageUrl', 'https://placekitten.com/g/100/100')
 
     return frisby.post(`${URL}/profile/image/url`, {
-      // @ts-expect-error FIXME form.getHeaders() is not found
       headers: { 'Content-Type': form.getHeaders()['content-type'] },
       body: form
     })
