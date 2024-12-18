@@ -7,7 +7,7 @@ import { expect } from '@jest/globals'
 import frisby = require('frisby')
 import io from 'socket.io-client'
 import { Joi } from 'frisby'
-
+import { setupSocket } from './vulnCodeSnippetSpec.ts
 const URL = 'http://localhost:3000'
 
 describe('/snippets/fixes/:key', () => {
@@ -32,22 +32,7 @@ describe('/snippets/fixes/:key', () => {
 describe('/snippets/fixes', () => {
   let socket: SocketIOClient.Socket
 
-  beforeEach(done => {
-    socket = io('http://localhost:3000', {
-      reconnectionDelay: 0,
-      forceNew: true
-    })
-    socket.on('connect', () => {
-      done()
-    })
-  })
-
-  afterEach(done => {
-    if (socket.connected) {
-      socket.disconnect()
-    }
-    done()
-  })
+  setupSocket(socket, 'http://localhost:3000', done)
 
   it('POST fix for non-existing challenge key throws error', () => {
     return frisby.post(URL + '/snippets/fixes', {
